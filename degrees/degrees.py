@@ -1,7 +1,7 @@
 import csv
 import sys
 
-from util import Node, StackFrontier, QueueFrontier
+# from util import Node, StackFrontier, QueueFrontier
 
 # Maps names to a set of corresponding person_ids
 names = {}
@@ -84,6 +84,39 @@ def main():
             print(f"{i + 1}: {person1} and {person2} starred in {movie}")
 
 
+class Actor:
+    def __init__(self, actor_id, movie_id=None, parent=None):
+        self.actor_id = actor_id
+        self.movie_id = movie_id
+        self.parent = parent
+        self.state = self.movie_id, self.actor_id
+
+    def connected_actors(self):
+        for mid in people[self.actor_id]["movies"]:
+            for aid in movies[mid]["stars"]:
+                yield aid, mid
+
+    def choose_actor(self, actor_id, movie_id):
+        return Actor(actor_id, movie_id, self)
+
+
+def unfold_actor_chain(final_node):
+    """Accepts a Actor object and unfolds all linked "parent" actors back to the first actor"""
+
+    # create list of linked actors
+    output_list = []
+    while final_node.parent:
+        output_list.append(final_node.state)
+        final_node = final_node.parent
+
+    # reverse list so that the first actor is also the first entry
+    output_list.reverse()
+
+    # against the specification the conversion to int is omitted !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # return [(int(a), int(b)) for a, b in output_list]
+    return output_list
+
+
 def shortest_path(source, target):
     """
     Returns the shortest list of (movie_id, person_id) pairs
@@ -92,8 +125,34 @@ def shortest_path(source, target):
     If no possible path, returns None.
     """
 
-    # TODO
-    raise NotImplementedError
+    frontier = [Actor(source)]
+    seen = []
+
+    final_node = None
+    target_found = False
+    while not target_found and frontier:
+        node = frontier.pop(0)
+
+        if node.state in seen:
+            continue
+
+        seen.append(node.state)
+
+        for aid, mid in node.connected_actors():
+
+            node_new = node.choose_actor(aid, mid)
+
+            if aid == target:
+                print("match found!")
+                final_node = node_new
+                target_found = True
+
+            frontier.append(node_new)
+
+    if final_node:
+        return unfold_actor_chain(final_node)
+    else:
+        return None
 
 
 def person_id_for_name(name):
