@@ -112,7 +112,12 @@ def unfold_actor_chain(final_node):
     # reverse list so that the first actor is also the first entry
     output_list.reverse()
 
-    # against the specification the conversion to int is omitted !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # On a DE/windows machine, the csv.DictReader reads all values as string
+    # type. This raises KeyErrors during lookups with integer keys.
+    # Therefore the conversion to int is omitted -- against the Specification
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     # return [(int(a), int(b)) for a, b in output_list]
     return output_list
 
@@ -146,6 +151,7 @@ def shortest_path(source, target):
                 print("match found!")
                 final_node = node_new
                 target_found = True
+                break
 
             frontier.append(node_new)
 

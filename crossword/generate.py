@@ -1,5 +1,5 @@
 import sys
-
+from collections import deque
 from crossword import *
 
 
@@ -99,7 +99,9 @@ class CrosswordCreator():
         (Remove any values that are inconsistent with a variable's unary
          constraints; in this case, the length of the word.)
         """
-        raise NotImplementedError
+        for var, domain in self.domains.items():
+            words_with_correct_length = set([word for word in domain if len(word) == var.length])
+            self.domains[var] = words_with_correct_length
 
     def revise(self, x, y):
         """
@@ -110,7 +112,15 @@ class CrosswordCreator():
         Return True if a revision was made to the domain of `x`; return
         False if no revision was made.
         """
-        raise NotImplementedError
+
+        bln_revised = False
+
+        for word in list(self.domains[x]):
+            if not self.are_there_matching_words_in_y_domain(x, y, word):
+                self.domains[x].remove(word)
+                bln_revised = True
+
+        return bln_revised
 
     def ac3(self, arcs=None):
         """
@@ -121,21 +131,78 @@ class CrosswordCreator():
         Return True if arc consistency is enforced and no domains are empty;
         return False if one or more domains end up empty.
         """
-        raise NotImplementedError
+
+        if arcs is None:
+            arcs = self.crossword.overlaps
+
+        arcs_queue = deque()
+        for arc in arcs:
+            arcs_queue.append(arc)
+
+        while arcs_queue:
+            v1, v2 = arcs_queue.pop()
+
+            if not self.crossword.overlaps[(v1, v2)]:
+                continue  # there is no arc
+
+            if self.revise(v1, v2):
+                if not self.domains[v1]:  # domain is empty
+                    return False
+
+                neighbor_variables = self.crossword.neighbors(v1) - {v2}
+                for vn in neighbor_variables:
+                    arcs_queue.append((vn, v1))
+            #print(arcs_queue)
+        return True
 
     def assignment_complete(self, assignment):
         """
         Return True if `assignment` is complete (i.e., assigns a value to each
         crossword variable); return False otherwise.
         """
-        raise NotImplementedError
+
+        if len(self.crossword.variables) != len(assignment):
+            print("diff lengths")
+            return False
+
+        for var, word in assignment.items():
+            if not word:
+                return False
+            if var not in self.crossword.variables:
+                return False
+
+        return True
 
     def consistent(self, assignment):
         """
         Return True if `assignment` is consistent (i.e., words fit in crossword
         puzzle without conflicting characters); return False otherwise.
         """
-        raise NotImplementedError
+        # all values are distinct?
+        words = assignment.values()
+        if len(words) != len(set(words)):
+            return False
+
+        # every value is the correct length?
+        for var, word in assignment.items():
+            if var.length != len(word):
+                return False
+
+        # there are no conflicts between neighboring variables?
+        # TODO make this loop more efficient and remove redundant checks
+        for v1 in assignment:
+            for v2 in self.crossword.neighbors(v1):
+
+                if v2 not in assignment:
+                    continue
+
+                i1, i2 = self.crossword.overlaps[(v1, v2)]
+
+                if assignment[v1][i1] != assignment[v2][i2]:
+                    return False
+
+        return True
+
 
     def order_domain_values(self, var, assignment):
         """
@@ -154,7 +221,31 @@ class CrosswordCreator():
         degree. If there is a tie, any of the tied variables are acceptable
         return values.
         """
-        raise NotImplementedError
+        unassigned_variables = self.crossword.variables - set(assignment.keys())
+
+        remaining_values = dict()
+        for var in unassigned_variables:
+            domain_length = len(self.domains[var])
+            if domain_length in remaining_values:
+                remaining_values[domain_length].append(var)
+            else:
+                remaining_values[domain_length] = [var]
+
+        m = min(remaining_values.keys())
+        if len(remaining_values[m]) == 1:
+            return remaining_values[m][0]
+
+        highest_degree = dict()
+        for var in remaining_values[m]:
+            d = len(self.crossword.neighbors(var))
+            if d in highest_degree:
+                highest_degree[d].append(var)
+            else:
+                highest_degree[d] = [var]
+
+        m = max(highest_degree.keys())
+        return highest_degree[m][0]
+
 
     def backtrack(self, assignment):
         """
@@ -165,7 +256,37 @@ class CrosswordCreator():
 
         If no assignment is possible, return None.
         """
-        raise NotImplementedError
+
+        if self.assignment_complete(assignment):
+            return assignment
+
+        var = self.select_unassigned_variable(assignment)
+        for value in self.domains[var]:
+
+            foo = dict(assignment)
+            foo[var] = value
+            if self.consistent(foo):
+                assignment[var] = value
+                result = self.backtrack(assignment)
+                if result:
+                    return result
+                assignment.pop(var)
+        return None
+
+    def are_there_matching_words_in_y_domain(self, x, y, word):
+        indexes = self.crossword.overlaps[(x, y)]
+        if indexes:
+            nx, ny = indexes
+            return indexed_character_match_in_strings(self.domains[y], word[nx], ny)
+        else:
+            raise Exception("TBD")
+
+
+def indexed_character_match_in_strings(input_strings, target_character, target_index):
+    for word in input_strings:
+        if word[target_index].upper() == target_character.upper():
+            return True
+    return False
 
 
 def main():
