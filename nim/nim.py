@@ -101,7 +101,12 @@ class NimAI():
         Return the Q-value for the state `state` and the action `action`.
         If no Q-value exists yet in `self.q`, return 0.
         """
-        raise NotImplementedError
+
+        key = (tuple(state), action)
+        try:
+            return self.q[key]
+        except KeyError:
+            return 0
 
     def update_q_value(self, state, action, old_q, reward, future_rewards):
         """
@@ -118,7 +123,7 @@ class NimAI():
         `alpha` is the learning rate, and `new value estimate`
         is the sum of the current reward and estimated future rewards.
         """
-        raise NotImplementedError
+        self.q[(tuple(state), action)] = old_q + self.alpha * (reward + future_rewards - old_q)
 
     def best_future_reward(self, state):
         """
@@ -130,7 +135,12 @@ class NimAI():
         Q-value in `self.q`. If there are no available actions in
         `state`, return 0.
         """
-        raise NotImplementedError
+
+        actions = Nim().available_actions(state)
+        if not actions:
+            return 0
+        else:
+            return max([self.get_q_value(state, action) for action in actions])
 
     def choose_action(self, state, epsilon=True):
         """
@@ -147,7 +157,23 @@ class NimAI():
         If multiple actions have the same Q-value, any of those
         options is an acceptable return value.
         """
-        raise NotImplementedError
+
+        actions = Nim().available_actions(state)
+        if epsilon and random.random() <= self.epsilon:
+            return random.choice(list(actions))
+
+        # build a dictionary with all q values
+        q_val_dict = dict()
+        for action in actions:
+            q_val = self.get_q_value(state, action)
+            if q_val in q_val_dict:
+                q_val_dict[q_val].append((state, action))
+            else:
+                q_val_dict[q_val] = [(state, action)]
+
+        # return the action with the highest q_value
+        k = max(q_val_dict.keys())
+        return q_val_dict[k][0][1]
 
 
 def train(n):
