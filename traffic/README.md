@@ -19,7 +19,7 @@ Two steps of Convolution and Pooling resulted in good accuracy. The neural netwo
 ### STEP 3: Removing complexity
 The first working configuration had quite good accuracy with round about 430k params. I tried to reduce the "params" and see if less complexity would yield equal accuracy. The following table shows a few runs that have been made:
 
-|Run|Params|Accuracy|
+|Run|Accuracy|Params|
 |---|---|---|
 |1| 0.97 | 430k
 |2| 0.97 | 142k

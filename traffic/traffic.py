@@ -141,7 +141,7 @@ def get_model():
     model = tf.keras.Sequential([
         Conv2D(filters=20, kernel_size=(3, 3), input_shape=shp, activation="tanh"),
         MaxPooling2D(pool_size=2),
-        Conv2D(filters=16, kernel_size=(3, 3), input_shape=shp, activation="tanh"),
+        Conv2D(filters=16, kernel_size=(3, 3), activation="tanh"),
         MaxPooling2D(pool_size=2),
         Flatten(),
         Dense(units=100, activation="sigmoid"),
