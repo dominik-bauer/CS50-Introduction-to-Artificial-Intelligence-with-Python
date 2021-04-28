@@ -163,7 +163,6 @@ def iterate_pagerank(corpus, damping_factor):
     their estimated PageRank value (a value between 0 and 1). All
     PageRank values should sum to 1.
     """
-
     # first handle pages without links
     corpus_mod = get_corpus_with_corrected_links(corpus)
 
