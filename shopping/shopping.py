@@ -11,11 +11,11 @@ TEST_SIZE = 0.4
 def main():
 
     # Check command-line arguments
-    #if len(sys.argv) != 2:
-    #    sys.exit("Usage: python shopping.py data")
+    if len(sys.argv) != 2:
+        sys.exit("Usage: python shopping.py data")
 
     # Load data from spreadsheet and split into train and test sets
-    evidence, labels = load_data("shopping.csv")#sys.argv[1])
+    evidence, labels = load_data(sys.argv[1])
 
     X_train, X_test, y_train, y_test = train_test_split(
         evidence, labels, test_size=TEST_SIZE
@@ -62,6 +62,7 @@ def load_data(filename):
     is 1 if Revenue is true, and 0 otherwise.
     """
 
+    # Definition of the months type conversion
     def cmonth(input_string):
         s = input_string.lower()
         if s in ["jan"]: return 0
@@ -77,6 +78,7 @@ def load_data(filename):
         if s in ["nov"]: return 10
         if s in ["dec"]: return 11
 
+        # Always know your input and raise Exception in case of unknown data
         raise Exception("Input String: {} is unknown".format(s))
 
     def cvisitortype(input_string):
@@ -86,6 +88,7 @@ def load_data(filename):
         if s in ["new_visitor", "other"]:
             return 0
 
+        # Always know your input and raise Exception in case of unknown data
         raise Exception("Input String: {} is unknown".format(s))
 
     def cbln(input_string):
@@ -95,37 +98,38 @@ def load_data(filename):
         elif s in ["false"]:
             return 0
 
+        # Always know your input and raise Exception in case of unknown data
         raise Exception("Input String: {} is unknown".format(s))
 
-    conversion_evidence= OrderedDict()
-    conversion_evidence["Administrative"] = int
-    conversion_evidence["Administrative_Duration"] = float
-    conversion_evidence["Informational"] = int
-    conversion_evidence["Informational_Duration"] = float
-    conversion_evidence["ProductRelated"] = int
-    conversion_evidence["ProductRelated_Duration"] = float
-    conversion_evidence["BounceRates"] = float
-    conversion_evidence["ExitRates"] = float
-    conversion_evidence["PageValues"] = float
-    conversion_evidence["SpecialDay"] = float
-    conversion_evidence["Month"] = cmonth
-    conversion_evidence["OperatingSystems"] = int
-    conversion_evidence["Browser"] = int
-    conversion_evidence["Region"] = int
-    conversion_evidence["TrafficType"] = int
-    conversion_evidence["VisitorType"] = cvisitortype
-    conversion_evidence["Weekend"] = cbln
+    conversion_functions = OrderedDict()
+    conversion_functions["Administrative"] = int
+    conversion_functions["Administrative_Duration"] = float
+    conversion_functions["Informational"] = int
+    conversion_functions["Informational_Duration"] = float
+    conversion_functions["ProductRelated"] = int
+    conversion_functions["ProductRelated_Duration"] = float
+    conversion_functions["BounceRates"] = float
+    conversion_functions["ExitRates"] = float
+    conversion_functions["PageValues"] = float
+    conversion_functions["SpecialDay"] = float
+    conversion_functions["Month"] = cmonth
+    conversion_functions["OperatingSystems"] = int
+    conversion_functions["Browser"] = int
+    conversion_functions["Region"] = int
+    conversion_functions["TrafficType"] = int
+    conversion_functions["VisitorType"] = cvisitortype
+    conversion_functions["Weekend"] = cbln
 
     evidence = []
     labels = []
-    with open(filename, "r") as csvfile:
-        reader = csv.DictReader(csvfile, delimiter=",")
+    with open(filename, "r") as f:
+        reader = csv.DictReader(f, delimiter=",")
         for row in reader:
-            evidence.append([conv(row[key]) for (key, conv) in conversion_evidence.items()])
+            # add values and convert to correct variable types
+            evidence.append([cfunc(row[k]) for (k, cfunc) in conversion_functions.items()])
             labels.append(cbln(row["Revenue"]))
 
     return evidence, labels
-
 
 
 def train_model(evidence, labels):
@@ -160,14 +164,18 @@ def evaluate(labels, predictions):
 
     for actual_label, predicted_label in zip(labels, predictions):
 
+        # counting positives
         if actual_label == 1:
-            true_positive_total += 1
+            true_positive_total = true_positive_total + 1
             if actual_label == predicted_label:
-                true_positive_matches += 1
-        else:
-            true_negative_total += 1
+                true_positive_matches = true_positive_matches + 1
+
+        # counting negatives
+        if actual_label == 0:
+            true_negative_total = true_negative_total + 1
             if actual_label == predicted_label:
-                true_negative_matches += 1
+                true_negative_matches = true_negative_matches + 1
+
 
     # In Python 3 integer division is handled as follows:
     # // => used for integer output
@@ -175,8 +183,6 @@ def evaluate(labels, predictions):
     sensitivity = true_positive_matches / true_positive_total
     specificity = true_negative_matches / true_negative_total
     return sensitivity, specificity
-
-
 
 
 if __name__ == "__main__":
