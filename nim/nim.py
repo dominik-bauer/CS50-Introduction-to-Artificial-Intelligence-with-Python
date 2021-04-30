@@ -123,7 +123,10 @@ class NimAI():
         `alpha` is the learning rate, and `new value estimate`
         is the sum of the current reward and estimated future rewards.
         """
-        self.q[(tuple(state), action)] = old_q + self.alpha * (reward + future_rewards - old_q)
+
+        new_q = old_q + self.alpha * (reward + future_rewards - old_q)
+
+        self.q[tuple(state), action] = new_q
 
     def best_future_reward(self, state):
         """
@@ -140,6 +143,7 @@ class NimAI():
         if not actions:
             return 0
         else:
+            # As of specification the function get_q_value() already assumes 0 for missing q-values
             return max([self.get_q_value(state, action) for action in actions])
 
     def choose_action(self, state, epsilon=True):
@@ -172,8 +176,13 @@ class NimAI():
                 q_val_dict[q_val] = [(state, action)]
 
         # return the action with the highest q_value
-        k = max(q_val_dict.keys())
-        return q_val_dict[k][0][1]
+        q_max = max(q_val_dict.keys())
+
+        # TODO add AI "behaviour":
+        #  - fast win: by selecting the action with the highest removal of points
+        #  - slow win: by selecting the action with the smallest removal of points
+        #  --> For now simply select the first (state, action):
+        return q_val_dict[q_max][0][1]
 
 
 def train(n):
