@@ -86,46 +86,54 @@ def load_data(data_dir):
     corresponding `images`.
     """
 
+    files = []
     images = []
     labels = []
-    n = 0
+
+    # remove trailing back/slashes
     if data_dir[-1] in ["\\", "/"]:
         data_dir = data_dir[:-1]
 
-    # TODO Make this more robust, as it only works with relative paths
-    for subdir, dirs, files in os.walk(data_dir):
-        for filename in files:
-            n = n + 1
-            dir_split = subdir.split(os.sep)
-            if len(dir_split) != 2:
-                continue
+    # Loop all subdirectories
+    for sd in [f for f in os.scandir(data_dir) if f.is_dir()]:
 
-            label = int(dir_split[-1])
+        # check if the current directory is a number
+        if not sd.name.isdigit():
+            continue
 
-            # Open the picture in CV
-            filepath = os.path.join(subdir, filename)
-            img = cv2.imread(filepath)
+        # get all files in subdirectory and save paths and label in lists
+        for fn in [f.path for f in os.scandir(sd) if f.is_file()]:
+            files.append(fn)
+            labels.append(int(sd.name))
 
-            # possible variant is to crop to square first in order to avoid skewed pictures
-            img = center_crop_to_square(img)
-
-            # Finally resize to given dimensions
-            img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT))
-
-            # And add everything to the designates lists
-            if not img.shape == (IMG_WIDTH, IMG_HEIGHT, 3):
-                raise Exception("The Image is of incorrect shape")
-            labels.append(label)
-            images.append(img)
-
-            # Checking the progress
-            if not n % 1000:
-                print("{} images loaded".format(n))
-
+    # Print statistics
+    print("\nFound a total of {} files and {} labels.\n".format(len(files), len(set(labels))))
     print("Found {} images within {}".format(len(labels), data_dir))
     for lab in sorted(set(labels)):
         print("Label {}: {} images".format(lab, Counter(labels)[lab]))
     print()
+
+    # Start loading images as per specification
+    n_total = len(files)
+    for n, (filepath, label) in enumerate(zip(files, labels), 1):
+
+        # Open the picture in CV
+        img = cv2.imread(filepath)
+
+        # possible variant is to crop to square first in order to avoid skewed pictures
+        # img = center_crop_to_square(img)
+
+        # Finally resize to given dimensions
+        img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT))
+
+        # And add image to designated list
+        if not img.shape == (IMG_WIDTH, IMG_HEIGHT, 3):
+            raise Exception("The Image is of incorrect shape")
+        images.append(img)
+
+        # Checking the progress
+        if (not n == 0 and not n % 1000) or n == n_total:
+            print("{} images processed ({:.1%})".format(n, n/n_total))
 
     return images, labels
 
