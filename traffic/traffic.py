@@ -3,12 +3,9 @@ import numpy as np
 import os
 import sys
 import tensorflow as tf
-
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from sklearn.model_selection import train_test_split
 
-# Some of my own imports
-from collections import Counter
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 
 EPOCHS = 10
 IMG_WIDTH = 30
@@ -108,9 +105,8 @@ def load_data(data_dir):
 
     # Print statistics
     print("\nFound a total of {} files and {} labels.\n".format(len(files), len(set(labels))))
-    print("Found {} images within {}".format(len(labels), data_dir))
     for lab in sorted(set(labels)):
-        print("Label {}: {} images".format(lab, Counter(labels)[lab]))
+        print("Label {}: {} images".format(lab, labels.count(lab)))
     print()
 
     # Start loading images as per specification
