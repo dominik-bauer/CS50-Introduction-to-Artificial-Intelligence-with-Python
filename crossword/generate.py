@@ -1,6 +1,7 @@
 import sys
 from collections import deque
 from crossword import *
+import copy
 
 
 class CrosswordCreator():
@@ -100,7 +101,9 @@ class CrosswordCreator():
          constraints; in this case, the length of the word.)
         """
         for var, domain in self.domains.items():
-            words_with_correct_length = set([word for word in domain if len(word) == var.length])
+            # avoiding the repeated call of remove() by directly generating
+            # a new set of words with correct length via set comprehension
+            words_with_correct_length = set(word for word in domain if len(word) == var.length)
             self.domains[var] = words_with_correct_length
 
     def revise(self, x, y):
@@ -115,7 +118,8 @@ class CrosswordCreator():
 
         bln_revised = False
 
-        for word in list(self.domains[x]):
+        # loop a copy in order to directly modify the domain
+        for word in copy.copy(self.domains[x]):
             if not self.are_there_matching_words_in_y_domain(x, y, word):
                 self.domains[x].remove(word)
                 bln_revised = True
@@ -132,6 +136,7 @@ class CrosswordCreator():
         return False if one or more domains end up empty.
         """
 
+        # "begin with initial list of all arcs in the problem"
         if arcs is None:
             arcs = self.crossword.overlaps
 
@@ -152,7 +157,7 @@ class CrosswordCreator():
                 neighbor_variables = self.crossword.neighbors(v1) - {v2}
                 for vn in neighbor_variables:
                     arcs_queue.append((vn, v1))
-            #print(arcs_queue)
+
         return True
 
     def assignment_complete(self, assignment):
@@ -161,10 +166,11 @@ class CrosswordCreator():
         crossword variable); return False otherwise.
         """
 
+        # check if number of assignments matches exactly the number of words in the cross-word puzzle
         if len(self.crossword.variables) != len(assignment):
-            print("diff lengths")
             return False
 
+        # some additional checking
         for var, word in assignment.items():
             if not word:
                 return False
@@ -178,8 +184,9 @@ class CrosswordCreator():
         Return True if `assignment` is consistent (i.e., words fit in crossword
         puzzle without conflicting characters); return False otherwise.
         """
-        # all values are distinct?
-        words = assignment.values()
+
+        # check if all values are distinct, i.e. that there are no duplicate words within the cross-word puzzle
+        words = list(assignment.values())
         if len(words) != len(set(words)):
             return False
 
@@ -188,21 +195,22 @@ class CrosswordCreator():
             if var.length != len(word):
                 return False
 
-        # there are no conflicts between neighboring variables?
-        # TODO make this loop more efficient and remove redundant checks
+        # Checking for conflicts between neighboring variables
+        # Kept the inefficient loop, as the nested loops will be small and readability is prioritized
         for v1 in assignment:
             for v2 in self.crossword.neighbors(v1):
 
+                # skip any variable that is not present in the assignment as the
+                # specification states "[...] that the assignment may not be complete."
                 if v2 not in assignment:
                     continue
 
+                # Now that v1 and v2 are in the assignment, the overlapping character can be checked:
                 i1, i2 = self.crossword.overlaps[(v1, v2)]
-
                 if assignment[v1][i1] != assignment[v2][i2]:
                     return False
 
         return True
-
 
     def order_domain_values(self, var, assignment):
         """
@@ -211,7 +219,31 @@ class CrosswordCreator():
         The first value in the list, for example, should be the one
         that rules out the fewest values among the neighbors of `var`.
         """
-        raise NotImplementedError
+
+        # for readability and consistency in naming
+        v1 = var
+
+        # get the variables that are still not assigned and overlap with the input var
+        neighbor_variables = self.crossword.neighbors(v1) - set(assignment.keys())
+        
+        # create dictionary in which removals are counted
+        removal_count = {word: 0 for word in self.domains[v1]}
+        
+        # now loop relevant neighbour variables
+        for v2 in neighbor_variables:
+
+            # get overlap indices
+            n1, n2 = self.crossword.overlaps[v1, v2]
+
+            # loop all word combinations
+            for word1 in self.domains[v1]:
+                for word2 in self.domains[v2]:
+                    if word1[n1].upper() != word2[n2].upper():
+                        removal_count[word1] += 1
+
+        foo = sorted(removal_count.items(), key=lambda x:x[1])
+
+        return [x[0] for x in foo]
 
     def select_unassigned_variable(self, assignment):
         """
@@ -246,7 +278,6 @@ class CrosswordCreator():
         m = max(highest_degree.keys())
         return highest_degree[m][0]
 
-
     def backtrack(self, assignment):
         """
         Using Backtracking Search, take as input a partial assignment for the
@@ -261,7 +292,8 @@ class CrosswordCreator():
             return assignment
 
         var = self.select_unassigned_variable(assignment)
-        for value in self.domains[var]:
+
+        for value in self.order_domain_values(var, assignment):
 
             foo = dict(assignment)
             foo[var] = value
@@ -274,15 +306,25 @@ class CrosswordCreator():
         return None
 
     def are_there_matching_words_in_y_domain(self, x, y, word):
+        """ Takes an x and y Variable object and a target word of the domain of the x variable. Then it checks if the
+            words of the y variable domain satisfy the overlap condition for that single target word. As soon as a
+            matching word is found within the domain of the y Variable the method returns true, otherwise false. """
+
+        # get overlap indexes
         indexes = self.crossword.overlaps[(x, y)]
-        if indexes:
-            nx, ny = indexes
-            return indexed_character_match_in_strings(self.domains[y], word[nx], ny)
-        else:
-            raise Exception("TBD")
+
+        # just in case
+        if not indexes:
+            raise Exception("No overlap")
+
+        nx, ny = indexes
+        return is_character_in_words(self.domains[y], word[nx], ny)
 
 
-def indexed_character_match_in_strings(input_strings, target_character, target_index):
+def is_character_in_words(input_strings, target_character, target_index):
+    """ Takes a list of strings (input_strings) and checks if the target_character is present at the target_index
+        for each word. As soon as there is at least one match the function returns true, otherwise false"""
+
     for word in input_strings:
         if word[target_index].upper() == target_character.upper():
             return True
