@@ -14,65 +14,61 @@ V -> "arrived" | "came" | "chuckled" | "had" | "lit" | "said" | "sat"
 V -> "smiled" | "tell" | "were"
 """
 
+# NONTERMINALS = """
+# S    -> NP VP | NP Conj NP | NP Conj VP
+# NP   -> N | P Det NP | N Adv | Det AdjC NP | NP VP | Det N
+# VP   -> V | V Adv | VP P NP | VP NP |
+# AdjC -> Adj | AdjC Adj
+# """
+# NONTERMINALS = """
+# S  -> NP VP | NP Conj NP | NP Conj VP
+# NP -> N     | Det N | Adj NP | P Det NP | N Adv | Det NP | Det Adj NP | NP VP | NP Adv VP | NP P NP | NP VP
+# VP -> V     | Adv V | V Adv | VP Det NP | VP P NP | P VP | VP NP
+# """
+
+# After brute forcing several rule combinations, I found a set of rules that work for me:
 NONTERMINALS = """
-
-S -> NP VP | NP VP | NP Conj NP
-NP -> N | Det N | Adj NP | P NP  | Det N | Det Adj NP | NP VP | NP Adv VP | NP P NP
-VP -> V | VP Det NP | VP P NP | P VP
-
+S  -> NP VP | NP Conj NP | NP Conj VP
+NP -> N | P Det N | N Adv | Det AdjC NP | NP VP | Det N
+VP -> V | V Adv | VP P NP | VP NP | VP Adv
+AdjC -> Adj   | AdjC Adj
 """
 
 grammar = nltk.CFG.fromstring(NONTERMINALS + TERMINALS)
 parser = nltk.ChartParser(grammar)
 
 
-sentences_list = """Holmes sat.
-Holmes sat in the armchair.
-Holmes lit a little red pipe.
-Holmes sat in the red armchair and he chuckled.
-I had a little moist red paint in the palm of my hand.
-We arrived the day before Thursday.
-My companion smiled an enigmatical smile.
-Holmes chuckled to himself.
-She never said a word until we were at the door here.
-Holmes sat down and lit his pipe.
-I had a country walk on Thursday and came home in a dreadful mess.
-"ABV asklf asdfk483 asdflj...""".split("\n")
-
-
 def main():
-    if False:
-        # If filename specified, read sentence from file
-        if len(sys.argv) == 2:
-            with open(sys.argv[1]) as f:
-                s = f.read()
 
-        # Otherwise, get sentence as input
-        else:
-            s = input("Sentence: ")
-    for s in sentences_list:
-        # Convert input into list of words
-        s = preprocess(s)
+    # If filename specified, read sentence from file
+    if len(sys.argv) == 2:
+        with open(sys.argv[1]) as f:
+            s = f.read()
 
-        print(s)
+    # Otherwise, get sentence as input
+    else:
+        s = input("Sentence: ")
 
-        # Attempt to parse sentence
-        try:
-            trees = list(parser.parse(s))
-        except ValueError as e:
-            print(e)
-            return
-        if not trees:
-            print("Could not parse sentence.")
-            return
+    # Convert input into list of words
+    s = preprocess(s)
 
-        # Print each tree with noun phrase chunks
-        for tree in trees:
-            tree.pretty_print()
+    # Attempt to parse sentence
+    try:
+        trees = list(parser.parse(s))
+    except ValueError as e:
+        print(e)
+        return
+    if not trees:
+        print("Could not parse sentence.")
+        return
 
-            print("Noun Phrase Chunks")
-            for np in np_chunk(tree):
-                print(" ".join(np.flatten()))
+    # Print each tree with noun phrase chunks
+    for tree in trees:
+        tree.pretty_print()
+
+        print("Noun Phrase Chunks")
+        for np in np_chunk(tree):
+            print(" ".join(np.flatten()))
 
 
 def preprocess(sentence):
@@ -101,8 +97,42 @@ def np_chunk(tree):
     whose label is "NP" that does not itself contain any other
     noun phrases as subtrees.
     """
-    return []
 
+    list_of_np_chunks = []
+
+    # go through all trees and its leaves
+    for st in tree.subtrees():
+
+        # skip if the label is not NP
+        if st.label() != "NP":
+            continue
+
+        # skip if there is another NP below this node/leaf
+        if has_np_below(st):
+            continue
+
+        # Now st must be of the type noun phrase and also
+        # it does not contain any noun phrases within itself
+        list_of_np_chunks.append(st)
+
+    return list_of_np_chunks
+
+
+def has_np_below(tree):
+    labels = set()
+
+    # fetch all labels below tree2
+    for st in tree.subtrees():
+
+        # skip the initial tree itself, as this can already be "NP" (i.e. skipping the first loop)
+        # the following two lines simplified the code A LOT!!!
+        if st == tree:
+            continue
+
+        # get a complete set of labels (easier for understanding and debugging)
+        labels.add(st.label())
+
+    return "NP" in labels
 
 
 if __name__ == "__main__":
