@@ -1,8 +1,13 @@
 import nltk
 import sys
+import os
+import string
+import math
 
 FILE_MATCHES = 1
 SENTENCE_MATCHES = 1
+
+# nltk.download('stopwords')
 
 
 def main():
@@ -48,7 +53,30 @@ def load_files(directory):
     Given a directory name, return a dictionary mapping the filename of each
     `.txt` file inside that directory to the file's contents as a string.
     """
-    raise NotImplementedError
+
+    # remove trailing back/slashes
+    if directory[-1] in ["\\", "/"]:
+        directory = directory[:-1]
+
+    # Loop all subdirectories
+    corpus_dict = {}
+
+    for file in os.scandir(directory):
+
+        # skip non-file objects like subdirectories
+        if not file.is_file():
+            continue
+
+        # load the contents of the text file into a string
+        str_file_content = ''
+        with open(file, 'r', encoding='utf-8') as x:
+            str_file_content = ''.join(x.readlines())
+
+        # skip empty text files
+        if str_file_content:
+            corpus_dict[file.name] = str_file_content
+
+    return corpus_dict
 
 
 def tokenize(document):
@@ -59,7 +87,24 @@ def tokenize(document):
     Process document by coverting all words to lowercase, and removing any
     punctuation or English stopwords.
     """
-    raise NotImplementedError
+
+    # make all characters lowercase
+    document2 = document.lower()
+
+    # remove punctuation (using maketrans, as it handles the conversion to unicode)
+    punctuation_translate_table = str.maketrans("", "", string.punctuation)
+    document2 = document2.translate(punctuation_translate_table)
+
+    # directly tokenize to words, as the removal of punctuation
+    # already eliminated any information about sentences
+    words = nltk.word_tokenize(document2)
+
+    # remove all stopwords (note: this would also remove a
+    # lot of punctuation characters, if it had been done at the beginning)
+    stopwords = nltk.corpus.stopwords.words("english")
+    words = [w for w in words if w not in stopwords]
+
+    return words
 
 
 def compute_idfs(documents):
@@ -70,7 +115,28 @@ def compute_idfs(documents):
     Any word that appears in at least one of the documents should be in the
     resulting dictionary.
     """
-    raise NotImplementedError
+
+    idfs = {}
+
+    # get all words first
+    unique_words = set().union(*documents.values())
+
+    # number of documents
+    nd = len(documents)
+
+    # loop every word/term found in all the documents
+    for term in unique_words:
+
+        # determine in how many documents the word/term occurs
+        ft = 0
+        for words in documents.values():
+            if term in words:
+                ft = ft + 1
+
+        # calculate idf
+        idfs[term] = math.log10(nd/ft)
+
+    return idfs
 
 
 def top_files(query, files, idfs, n):
@@ -80,7 +146,29 @@ def top_files(query, files, idfs, n):
     to their IDF values), return a list of the filenames of the the `n` top
     files that match the query, ranked according to tf-idf.
     """
-    raise NotImplementedError
+
+    ranking = {}
+    for file, file_words in files.items():
+
+        # starting at zero, as we will sum um the tf-idfs
+        ranking[file] = 0
+
+        # calculate the tf-idf for each term and add it to the ranking dict
+        for term in query:
+
+            # only consider words that occur in the file
+            if term in file_words:
+                # term frequency * inverse document frequency
+                ranking[file] += file_words.count(term) * idfs[term]
+
+    # return empty list if all ranking values are 0
+    # if not any(ranking.items()):
+    #     return []
+
+    ranking_sorted = sorted(ranking.items(), key=lambda x: x[1], reverse=True)
+
+    # finally return top n files
+    return [x[0] for x in ranking_sorted][:n]
 
 
 def top_sentences(query, sentences, idfs, n):
@@ -91,7 +179,30 @@ def top_sentences(query, sentences, idfs, n):
     the query, ranked according to idf. If there are ties, preference should
     be given to sentences that have a higher query term density.
     """
-    raise NotImplementedError
+    ranking = []
+    for sentence, sentence_words in sentences.items():
+
+        idf = 0
+        n_matches = 0
+
+        # sum up inverse document frequency
+        for term in query:
+            if term in sentence_words:
+                idf += idfs[term]
+
+            # calculate matches for query term density
+            n_matches += sentence_words.count(term)
+
+        # calculate query term density
+        qtd = n_matches / len(sentence_words)
+
+        # put sentence and its related idf and qtd into a list
+        ranking.append([sentence, idf, qtd])
+
+    # sort first by idf then by qtd
+    ranking_sorted = sorted(ranking, key=lambda x: (x[1], x[2]), reverse=True)
+
+    return [x[0] for x in ranking_sorted[:n]]
 
 
 if __name__ == "__main__":
